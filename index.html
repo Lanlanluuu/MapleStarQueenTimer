@@ -120,20 +120,6 @@
     transform: translateX(-50%);
     z-index: 9999;
   }
-  .now-marker::before{
-    content:'';
-    position:absolute; top:-5px; left:50%; transform: translateX(-50%);
-    width:0; height:0;
-    border-left:4px solid transparent;
-    border-right:4px solid transparent;
-    border-top:5px solid var(--ink);
-  }
-  .now-marker .now-tag{
-    position:absolute; bottom:28px; left:50%; transform: translateX(-50%);
-    font-size:.65rem; font-weight:700; white-space:nowrap; color: var(--panel);
-    background: var(--ink);
-    padding:2px 7px; border-radius:4px;
-  }
 
   .mark{
     position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
@@ -165,6 +151,9 @@
   .log .chip{
     font-size:.72rem; border:1px solid var(--panel-line); border-radius:20px;
     padding: 3px 10px; color: var(--ink-dim); display:flex; align-items:center; gap:6px;
+  }
+  .log .chip.past{
+    background: var(--track);
   }
   .log .chip .dot{ width:7px; height:7px; border-radius:50%; background: var(--chip-color, var(--gold)); }
   .log .chip button{
@@ -287,7 +276,7 @@ const numberline = document.getElementById('numberline');
 const logEl = document.getElementById('log');
 let marks = new Map();
 let markSeq = 0; // 遞增序號，用來讓後產生的點疊在上層
-const PADDING_SECONDS = 2*60; // 數線只顯示按下時間前後兩分鐘的範圍
+const PADDING_SECONDS = 20; // 數線只抓最左、最右的點前後 20 秒
 
 function secondsToPercent(seconds, domainMin, domainMax){
   const span = Math.max(domainMax - domainMin, 1);
@@ -344,33 +333,26 @@ function renderMarks(){
     });
   }
 
-  const leftLabel = document.createElement('div');
-  leftLabel.className = 'range-label left';
-  leftLabel.textContent = formatTime(domainMin);
-  numberline.appendChild(leftLabel);
-
-  const rightLabel = document.createElement('div');
-  rightLabel.className = 'range-label right';
-  rightLabel.textContent = formatTime(domainMax);
-  numberline.appendChild(rightLabel);
+  // 依需求不顯示左右端點的時間標籤
 
   // 現在時間的點，會隨著計時器即時移動
   const nowMarker = document.createElement('div');
   nowMarker.className = 'now-marker';
   nowMarker.style.left = secondsToPercent(currentSeconds, domainMin, domainMax)+'%';
   nowMarker.style.zIndex = 9999;
-  nowMarker.innerHTML = `<div class="now-tag">現在 ${formatTime(currentSeconds)}</div>`;
   numberline.appendChild(nowMarker);
 
-  // 紀錄列表
+  // 紀錄列表：依「接下來會發生」的順序排序（倒數時間越接近現在的，代表越快發生）
   logEl.innerHTML = '';
   if(marks.size === 0){
     logEl.innerHTML = '<span class="empty">尚未有任何紀錄</span>';
     return;
   }
-  marks.forEach(m=>{
+  const upcomingOrder = [...marks.values()].sort((a,b)=> b.resultSeconds - a.resultSeconds);
+  upcomingOrder.forEach(m=>{
+    const isPast = currentSeconds <= m.resultSeconds;
     const chip = document.createElement('div');
-    chip.className = 'chip';
+    chip.className = 'chip' + (isPast ? ' past' : '');
     chip.style.setProperty('--chip-color', m.mech.color);
     chip.innerHTML = `
       <span class="dot"></span>
