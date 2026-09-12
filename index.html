@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>女皇計時 + 數線</title>
+<style>
+  :root{
+    --bg: #faf6ec;
+    --panel: #ffffff;
+    --panel-line: #e6dfcd;
+    --gold: #a9772f;
+    --gold-dim: #cdb98c;
+    --ink: #2e2a22;
+    --ink-dim: #8c8271;
+    --track: #eee7d6;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% -10%, #fffdf6 0%, transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+    padding: 32px 16px 64px;
+  }
+  h1{
+    font-family: Georgia, "Noto Serif TC", serif;
+    font-weight: 600;
+    letter-spacing: .04em;
+    font-size: 1.6rem;
+    color: var(--gold);
+    text-align:center;
+    margin: 0 0 4px;
+  }
+  .sub{
+    text-align:center;
+    color: var(--ink-dim);
+    font-size: .82rem;
+    margin-bottom: 28px;
+  }
+  .wrap{ max-width: 720px; margin: 0 auto; display:flex; flex-direction:column; gap:20px; }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .clock-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .clock-row label{ color: var(--ink-dim); font-size:.85rem; }
+  #currentTime{
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 1.8rem;
+    letter-spacing: .05em;
+    background: var(--track);
+    border: 1px solid var(--panel-line);
+    color: var(--gold);
+    border-radius: 6px;
+    padding: 6px 12px;
+    width: 130px;
+    text-align:center;
+  }
+  .btn{
+    appearance:none; border:1px solid var(--panel-line); background: var(--track);
+    color: var(--ink); border-radius:6px; padding:8px 14px; font-size:.85rem;
+    cursor:pointer; transition: border-color .15s, color .15s;
+  }
+  .btn:hover{ border-color: var(--gold-dim); color: var(--gold); }
+  .btn.primary{ border-color: var(--gold-dim); color: var(--gold); }
+
+  .mech-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px,1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .mech{
+    background: var(--track);
+    border: 1px solid var(--panel-line);
+    border-radius: 8px;
+    padding: 12px;
+    text-align:center;
+    cursor:pointer;
+    transition: transform .1s, border-color .15s;
+  }
+  .mech:hover{ border-color: var(--mech-color, var(--gold)); }
+  .mech:active{ transform: scale(.97); }
+  .mech .name{ font-weight:600; color: var(--mech-color, var(--gold)); }
+  .mech .desc{ font-size:.72rem; color: var(--ink-dim); margin: 4px 0 8px; }
+  .mech .result{ font-family: monospace; font-size:1.1rem; }
+
+  .line-panel h2{
+    font-size: .95rem; letter-spacing:.02em; color: var(--gold);
+    margin: 0 0 4px; font-weight:600;
+  }
+  .line-panel .hint{ color: var(--ink-dim); font-size:.75rem; margin-bottom: 22px; }
+
+  .numberline{
+    position: relative;
+    height: 6px;
+    background: var(--track);
+    border: 1px solid var(--panel-line);
+    border-radius: 3px;
+    margin: 30px 6px 30px;
+  }
+
+  .numberline .range-label{
+    position:absolute; top:14px; font-size:.65rem; color: var(--ink-dim); font-family: monospace;
+  }
+  .numberline .range-label.left{ left:0; }
+  .numberline .range-label.right{ right:0; }
+
+  .mark{
+    position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
+    transform: translate(-50%,-50%);
+    background: var(--mark-color, var(--gold));
+    border: 2px solid var(--bg);
+    cursor: default;
+  }
+  .mark .tag{
+    position:absolute; bottom:14px; left:50%; transform: translateX(-50%);
+    font-size:.62rem; font-weight:600; white-space:nowrap; color: var(--mark-color, var(--gold));
+    background: var(--panel); border: 1px solid var(--mark-color, var(--gold));
+    padding:1px 6px; border-radius:4px;
+    pointer-events:none;
+  }
+  .mark .tag.below{
+    bottom:auto; top:14px;
+  }
+  .mark:hover .tooltip{ display:block; }
+  .mark .tooltip{
+    display:none;
+    position:absolute; bottom:32px; left:50%; transform: translateX(-50%);
+    background: var(--panel); border:1px solid var(--panel-line);
+    color: var(--ink); font-size:.7rem; padding:6px 8px; border-radius:6px;
+    white-space:nowrap; z-index:5;
+  }
+
+  .log{ margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
+  .log .chip{
+    font-size:.72rem; border:1px solid var(--panel-line); border-radius:20px;
+    padding: 3px 10px; color: var(--ink-dim); display:flex; align-items:center; gap:6px;
+  }
+  .log .chip .dot{ width:7px; height:7px; border-radius:50%; background: var(--chip-color, var(--gold)); }
+  .log .chip button{
+    background:none; border:none; color: var(--ink-dim); cursor:pointer; font-size:.8rem; line-height:1; padding:0;
+  }
+  .log .chip button:hover{ color: var(--gold); }
+  .log .empty{ color: var(--ink-dim); font-size:.72rem; font-style:italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>女皇計時</h1>
+    <div class="sub">倒數計時 ・ 機制紀錄數線</div>
+  </div>
+
+  <div class="panel">
+    <div class="clock-row">
+      <label>目前時間</label>
+      <input id="currentTime" value="59:59" inputmode="numeric">
+      <button class="btn primary" id="startBtn">開始</button>
+      <button class="btn" id="pauseBtn">暫停</button>
+      <button class="btn" id="resetBtn">重設</button>
+    </div>
+
+    <div class="mech-grid" id="mechGrid"></div>
+  </div>
+
+  <div class="panel line-panel">
+    <h2>機制時間軸</h2>
+    <div class="hint">點的位置是該機制下次發生的時間（目前時間減掉秒數後的結果），只顯示所有紀錄前後三分鐘的範圍</div>
+    <div class="numberline" id="numberline"></div>
+    <div class="log" id="log"><span class="empty">尚未有任何紀錄</span></div>
+    <button class="btn" id="clearMarks" style="margin-top:14px;">清除數線紀錄</button>
+  </div>
+</div>
+
+<script>
+/* ---------- 時間工具 ---------- */
+const MAX_SECONDS = 59*60+59; // 3599, 對應 59:59
+
+function parseTime(str){
+  str = str.trim();
+  let m, s;
+  if(str.includes(':')){
+    const [mm, ss] = str.split(':');
+    m = parseInt(mm||'0', 10); s = parseInt(ss||'0', 10);
+  } else {
+    const digits = str.padStart(4,'0');
+    m = parseInt(digits.slice(0,-2),10);
+    s = parseInt(digits.slice(-2),10);
+  }
+  if(isNaN(m)) m = 0;
+  if(isNaN(s)) s = 0;
+  return m*60+s;
+}
+function formatTime(totalSeconds){
+  const neg = totalSeconds < 0;
+  totalSeconds = Math.abs(totalSeconds);
+  const m = Math.floor(totalSeconds/60);
+  const s = totalSeconds%60;
+  return (neg?'-':'') + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+/* ---------- 機制按鈕設定 ---------- */
+const MECHS = [
+  { key:'antishield', name:'反盾', seconds:79, color:'#e07a8b' },
+  { key:'pig',        name:'變豬', seconds:59, color:'#e0a95f' },
+  { key:'dive',       name:'鎖潛', seconds:89, color:'#6fb3d2' },
+  { key:'zombie',     name:'活屍', seconds:59, color:'#7fbf7f' },
+  { key:'warp',       name:'傳送', seconds:90, color:'#b48ee0' },
+];
+
+const mechGrid = document.getElementById('mechGrid');
+MECHS.forEach(mech=>{
+  const el = document.createElement('div');
+  el.className = 'mech';
+  el.style.setProperty('--mech-color', mech.color);
+  el.innerHTML = `
+    <div class="name">${mech.name}</div>
+    <div class="desc">用上方時間減 ${mech.seconds} 秒</div>
+    <div class="result" data-result>--:--</div>
+  `;
+  el.addEventListener('click', ()=> pressMech(mech, el));
+  mechGrid.appendChild(el);
+});
+
+function pressMech(mech, el){
+  const nowSeconds = parseTime(currentTimeInput.value);
+  const result = nowSeconds - mech.seconds;
+  el.querySelector('[data-result]').textContent = formatTime(result);
+  addMark(mech, nowSeconds, result);
+}
+
+/* ---------- 目前時間 / 計時器 ---------- */
+const currentTimeInput = document.getElementById('currentTime');
+let timerHandle = null;
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  if(timerHandle) return;
+  timerHandle = setInterval(()=>{
+    const s = parseTime(currentTimeInput.value);
+    if(s <= 0){ clearInterval(timerHandle); timerHandle = null; return; }
+    currentTimeInput.value = formatTime(s-1);
+  }, 1000);
+});
+document.getElementById('pauseBtn').addEventListener('click', ()=>{
+  clearInterval(timerHandle); timerHandle = null;
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  clearInterval(timerHandle); timerHandle = null;
+  currentTimeInput.value = '59:59';
+});
+
+/* ---------- 數線 ---------- */
+const numberline = document.getElementById('numberline');
+const logEl = document.getElementById('log');
+let marks = new Map();
+let markSeq = 0; // 遞增序號，用來讓後產生的點疊在上層
+const PADDING_SECONDS = 2*60; // 數線只顯示按下時間前後兩分鐘的範圍
+
+function secondsToPercent(seconds, domainMin, domainMax){
+  const span = Math.max(domainMax - domainMin, 1);
+  const clamped = Math.min(Math.max(seconds, domainMin), domainMax);
+  return (domainMax - clamped)/span*100;
+}
+
+// marks 用 mech.key 當 key，同一個按鈕再按一次會直接覆蓋，不會堆疊
+function addMark(mech, atSeconds, resultSeconds){
+  markSeq += 1;
+  marks.set(mech.key, { mech, atSeconds, resultSeconds, seq: markSeq });
+  renderMarks();
+}
+
+function removeMark(key){
+  marks.delete(key);
+  renderMarks();
+}
+
+function renderMarks(){
+  // 清掉舊的點與範圍標籤
+  numberline.querySelectorAll('.mark, .range-label').forEach(n=>n.remove());
+
+  const list = Array.from(marks.values());
+  if(list.length > 0){
+    const times = list.map(m=>m.resultSeconds);
+    let domainMin = Math.min(...times) - PADDING_SECONDS;
+    let domainMax = Math.max(...times) + PADDING_SECONDS;
+    domainMin = Math.max(domainMin, 0);
+    domainMax = Math.min(domainMax, MAX_SECONDS);
+
+    // 依產生順序排序，seq 越大越晚按下，DOM 中排在後面、疊在最上層
+    // 依「數線上的位置」排序，用來決定每個點的文字要往上還往下，避免相鄰的點文字重疊
+    const posOrder = [...list].sort((a,b)=> a.resultSeconds - b.resultSeconds);
+    const parityByKey = new Map();
+    posOrder.forEach((m, i)=> parityByKey.set(m.mech.key, i % 2));
+
+    // 依按下的先後順序排序，seq 越大越晚按下，DOM 中排在後面、疊在最上層
+    list.sort((a,b)=> a.seq - b.seq);
+    list.forEach(m=>{
+      const dot = document.createElement('div');
+      dot.className = 'mark';
+      dot.style.setProperty('--mark-color', m.mech.color);
+      dot.style.left = secondsToPercent(m.resultSeconds, domainMin, domainMax)+'%';
+      dot.style.zIndex = m.seq;
+      const tagClass = parityByKey.get(m.mech.key) === 0 ? 'tag' : 'tag below';
+      dot.innerHTML = `
+        <div class="${tagClass}">${m.mech.name} ${formatTime(m.resultSeconds)}</div>
+        <div class="tooltip">${m.mech.name} ・ 按下時 ${formatTime(m.atSeconds)}<br>下次發生 ${formatTime(m.resultSeconds)}</div>
+      `;
+      numberline.appendChild(dot);
+    });
+
+    const leftLabel = document.createElement('div');
+    leftLabel.className = 'range-label left';
+    leftLabel.textContent = formatTime(domainMin);
+    numberline.appendChild(leftLabel);
+
+    const rightLabel = document.createElement('div');
+    rightLabel.className = 'range-label right';
+    rightLabel.textContent = formatTime(domainMax);
+    numberline.appendChild(rightLabel);
+  }
+
+  // 紀錄列表
+  logEl.innerHTML = '';
+  if(marks.size === 0){
+    logEl.innerHTML = '<span class="empty">尚未有任何紀錄</span>';
+    return;
+  }
+  marks.forEach(m=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.setProperty('--chip-color', m.mech.color);
+    chip.innerHTML = `
+      <span class="dot"></span>
+      <span>${m.mech.name} ${formatTime(m.resultSeconds)}</span>
+      <button title="移除">×</button>
+    `;
+    chip.querySelector('button').addEventListener('click', ()=> removeMark(m.mech.key));
+    logEl.appendChild(chip);
+  });
+}
+renderMarks();
+
+document.getElementById('clearMarks').addEventListener('click', ()=>{
+  marks = new Map();
+  renderMarks();
+});
+</script>
+</body>
+</html>
