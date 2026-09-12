@@ -105,7 +105,7 @@
     background: var(--track);
     border: 1px solid var(--panel-line);
     border-radius: 3px;
-    margin: 30px 6px 30px;
+    margin: 42px 6px 30px;
   }
 
   .numberline .range-label{
@@ -113,6 +113,27 @@
   }
   .numberline .range-label.left{ left:0; }
   .numberline .range-label.right{ right:0; }
+
+  .now-marker{
+    position:absolute; top:-9px; width:2px; height:24px;
+    background: var(--ink);
+    transform: translateX(-50%);
+    z-index: 9999;
+  }
+  .now-marker::before{
+    content:'';
+    position:absolute; top:-5px; left:50%; transform: translateX(-50%);
+    width:0; height:0;
+    border-left:4px solid transparent;
+    border-right:4px solid transparent;
+    border-top:5px solid var(--ink);
+  }
+  .now-marker .now-tag{
+    position:absolute; bottom:28px; left:50%; transform: translateX(-50%);
+    font-size:.65rem; font-weight:700; white-space:nowrap; color: var(--panel);
+    background: var(--ink);
+    padding:2px 7px; border-radius:4px;
+  }
 
   .mark{
     position:absolute; top:50%; width:11px; height:11px; border-radius:50%;
@@ -248,6 +269,7 @@ document.getElementById('startBtn').addEventListener('click', ()=>{
     const s = parseTime(currentTimeInput.value);
     if(s <= 0){ clearInterval(timerHandle); timerHandle = null; return; }
     currentTimeInput.value = formatTime(s-1);
+    renderMarks();
   }, 1000);
 });
 document.getElementById('pauseBtn').addEventListener('click', ()=>{
@@ -256,7 +278,9 @@ document.getElementById('pauseBtn').addEventListener('click', ()=>{
 document.getElementById('resetBtn').addEventListener('click', ()=>{
   clearInterval(timerHandle); timerHandle = null;
   currentTimeInput.value = '59:59';
+  renderMarks();
 });
+currentTimeInput.addEventListener('input', ()=> renderMarks());
 
 /* ---------- 數線 ---------- */
 const numberline = document.getElementById('numberline');
@@ -284,18 +308,20 @@ function removeMark(key){
 }
 
 function renderMarks(){
-  // 清掉舊的點與範圍標籤
-  numberline.querySelectorAll('.mark, .range-label').forEach(n=>n.remove());
+  // 清掉舊的點、範圍標籤與現在時間標記
+  numberline.querySelectorAll('.mark, .range-label, .now-marker').forEach(n=>n.remove());
 
   const list = Array.from(marks.values());
-  if(list.length > 0){
-    const times = list.map(m=>m.resultSeconds);
-    let domainMin = Math.min(...times) - PADDING_SECONDS;
-    let domainMax = Math.max(...times) + PADDING_SECONDS;
-    domainMin = Math.max(domainMin, 0);
-    domainMax = Math.min(domainMax, MAX_SECONDS);
+  const currentSeconds = parseTime(currentTimeInput.value);
 
-    // 依產生順序排序，seq 越大越晚按下，DOM 中排在後面、疊在最上層
+  // 數線範圍：涵蓋所有標記的下次發生時間，以及目前時間，前後各留兩分鐘
+  const times = list.map(m=>m.resultSeconds).concat([currentSeconds]);
+  let domainMin = Math.min(...times) - PADDING_SECONDS;
+  let domainMax = Math.max(...times) + PADDING_SECONDS;
+  domainMin = Math.max(domainMin, 0);
+  domainMax = Math.min(domainMax, MAX_SECONDS);
+
+  if(list.length > 0){
     // 依「數線上的位置」排序，用來決定每個點的文字要往上還往下，避免相鄰的點文字重疊
     const posOrder = [...list].sort((a,b)=> a.resultSeconds - b.resultSeconds);
     const parityByKey = new Map();
@@ -316,17 +342,25 @@ function renderMarks(){
       `;
       numberline.appendChild(dot);
     });
-
-    const leftLabel = document.createElement('div');
-    leftLabel.className = 'range-label left';
-    leftLabel.textContent = formatTime(domainMin);
-    numberline.appendChild(leftLabel);
-
-    const rightLabel = document.createElement('div');
-    rightLabel.className = 'range-label right';
-    rightLabel.textContent = formatTime(domainMax);
-    numberline.appendChild(rightLabel);
   }
+
+  const leftLabel = document.createElement('div');
+  leftLabel.className = 'range-label left';
+  leftLabel.textContent = formatTime(domainMin);
+  numberline.appendChild(leftLabel);
+
+  const rightLabel = document.createElement('div');
+  rightLabel.className = 'range-label right';
+  rightLabel.textContent = formatTime(domainMax);
+  numberline.appendChild(rightLabel);
+
+  // 現在時間的點，會隨著計時器即時移動
+  const nowMarker = document.createElement('div');
+  nowMarker.className = 'now-marker';
+  nowMarker.style.left = secondsToPercent(currentSeconds, domainMin, domainMax)+'%';
+  nowMarker.style.zIndex = 9999;
+  nowMarker.innerHTML = `<div class="now-tag">現在 ${formatTime(currentSeconds)}</div>`;
+  numberline.appendChild(nowMarker);
 
   // 紀錄列表
   logEl.innerHTML = '';
